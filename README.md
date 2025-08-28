@@ -1,6 +1,3 @@
-Perfect, thanks for sharing the full `MainActivity.java`. Based on this, here’s the **tailored README.md** for your project.
-
----
 
 # Distress Signal App
 
@@ -155,6 +152,4 @@ Example:
 * At least one contact must exist in `emergency_contacts`.
 * Location accuracy depends on GPS and network availability.
 
----
 
-Do you also want me to include a **step-by-step Supabase REST API guide** in the README (like how to enable Row Level Security and create policies for `emergency_contacts`)? That would make the setup seamless.
