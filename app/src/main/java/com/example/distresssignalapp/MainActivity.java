@@ -22,30 +22,21 @@ import androidx.core.content.ContextCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity implements LocationListener {
 
     private static final String TAG = "DistressApp";
     private static final int PERMISSIONS_REQUEST_CODE = 100;
-    private static final String SUPABASE_URL = "https://zyygerdxhwpjtanigtmvr.supabase.co";
-    private static final String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5eWdlZHhod3BqdGFuaWd0bXZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyNjQzOTcsImV4cCI6MjA3MTg0MDM5N30.FmuD3wAXXtpC19IFtAX11FRd6pOKbhbz7e2XvpOqYLI";
     private static final String USER_ID = "11111111-1111-1111-1111-111111111111";
 
     private LocationManager locationManager;
     private Location currentLocation;
     private TextView statusTextView;
     private Button sendDistressButton;
-    private OkHttpClient httpClient;
+    private SupabaseHelper supabaseHelper;
 
     private int volumeUpPressCount = 0;
     private long lastVolumeUpPress = 0;
@@ -59,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             Log.d(TAG, "Activity created successfully");
 
             initializeViews();
-            initializeHttpClient();
+            initializeSupabaseHelper();
             checkPermissions();
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate: " + e.getMessage(), e);
@@ -85,13 +76,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         }
     }
 
-    private void initializeHttpClient() {
-        try {
-            httpClient = new OkHttpClient();
-            Log.d(TAG, "HTTP client initialized");
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing HTTP client: " + e.getMessage(), e);
-        }
+    private void initializeSupabaseHelper() {
+        supabaseHelper = new SupabaseHelper(this);
+        Log.d(TAG, "Supabase helper initialized");
     }
 
     private void checkPermissions() {
@@ -124,16 +111,16 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
         if (requestCode == PERMISSIONS_REQUEST_CODE) {
             boolean allGranted = true;
-            for (int i = 0; i < grantResults.length; i++) {
-                if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
                     allGranted = false;
-                    Log.d(TAG, "Permission denied: " + permissions[i]);
+                    break;
                 }
             }
 
             if (!allGranted) {
                 updateStatus("Please grant all permissions for the app to work");
-                Toast.makeText(this, "All permissions are required for the app to work properly", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "All permissions are required", Toast.LENGTH_LONG).show();
             } else {
                 Log.d(TAG, "All permissions granted");
                 initializeLocationManager();
@@ -147,18 +134,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
                 if (locationManager != null) {
-                    // Request location updates
                     if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000, 10, this);
-                        Log.d(TAG, "GPS location updates requested");
                     }
 
                     if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                         locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000, 10, this);
-                        Log.d(TAG, "Network location updates requested");
                     }
 
-                    // Try to get last known location
                     Location lastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                     if (lastLocation == null) {
                         lastLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
@@ -166,32 +149,53 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
                     if (lastLocation != null) {
                         currentLocation = lastLocation;
-                        updateStatus("Location ready. Press volume up 3 times or use button to send distress signal.");
-                        Log.d(TAG, "Got last known location: " + lastLocation.getLatitude() + ", " + lastLocation.getLongitude());
+                        updateStatus("Location ready. Press volume up 3 times or use button.");
                     } else {
-                        updateStatus("Getting location... Press volume up 3 times or use button when ready.");
-                        Log.d(TAG, "No last known location available");
+                        updateStatus("Getting location... Please wait.");
                     }
                 }
-            } else {
-                updateStatus("Location permission required");
-                Log.e(TAG, "Location permission not granted");
             }
         } catch (SecurityException e) {
-            Log.e(TAG, "Security exception in location manager: " + e.getMessage(), e);
+            Log.e(TAG, "Security exception: " + e.getMessage(), e);
             updateStatus("Location permission error");
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing location manager: " + e.getMessage(), e);
-            updateStatus("Error setting up location");
         }
+    }
+
+    private void getEmergencyContacts() {
+        Log.d(TAG, "Fetching emergency contacts");
+        updateStatus("Fetching emergency contacts...");
+
+        supabaseHelper.fetchEmergencyContacts(USER_ID, new SupabaseHelper.ContactsCallback() {
+            @Override
+            public void onSuccess(JSONArray contacts) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        sendSMSToContacts(contacts);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                Log.e(TAG, "Failed to get emergency contacts", e);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateStatus("Failed to get emergency contacts: " + e.getMessage());
+                        Toast.makeText(MainActivity.this,
+                                "Failed to send distress signal - " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             long currentTime = System.currentTimeMillis();
-
-            // Reset count if timeout exceeded
             if (currentTime - lastVolumeUpPress > VOLUME_PRESS_TIMEOUT) {
                 volumeUpPressCount = 0;
             }
@@ -199,12 +203,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             volumeUpPressCount++;
             lastVolumeUpPress = currentTime;
 
-            Log.d(TAG, "Volume up pressed " + volumeUpPressCount + " times");
-
             if (volumeUpPressCount >= 3) {
                 volumeUpPressCount = 0;
                 sendDistressSignal();
-                return true; // Consume the event
+                return true;
             }
 
             updateStatus("Volume up pressed " + volumeUpPressCount + "/3 times");
@@ -216,89 +218,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     private void sendDistressSignal() {
         Log.d(TAG, "Sending distress signal");
         updateStatus("Sending distress signal...");
-
-        // Send even if location is not available yet
         getEmergencyContacts();
-    }
-
-    private void getEmergencyContacts() {
-        String url = SUPABASE_URL + "/rest/v1/emergency_contacts?user_id=eq." + USER_ID;
-        Log.d(TAG, "Fetching emergency contacts from: " + url);
-
-        try {
-            Request request = new Request.Builder()
-                    .url(url)
-                    .addHeader("apikey", SUPABASE_ANON_KEY)
-                    .addHeader("Authorization", "Bearer " + SUPABASE_ANON_KEY)
-                    .addHeader("Content-Type", "application/json")
-                    .build();
-
-            httpClient.newCall(request).enqueue(new Callback() {
-                @Override
-                public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                    Log.e(TAG, "Failed to get emergency contacts", e);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            updateStatus("Failed to get emergency contacts. Check internet connection.");
-                            Toast.makeText(MainActivity.this, "Failed to send distress signal - No internet", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-
-                @Override
-                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                    Log.d(TAG, "Response code: " + response.code());
-
-                    if (response.isSuccessful()) {
-                        String responseBody = response.body().string();
-                        Log.d(TAG, "Response body: " + responseBody);
-
-                        try {
-                            JSONArray contacts = new JSONArray(responseBody);
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    sendSMSToContacts(contacts);
-                                }
-                            });
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error parsing contacts", e);
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    updateStatus("Error parsing contacts: " + e.getMessage());
-                                }
-                            });
-                        }
-                    } else {
-                        Log.e(TAG, "Failed response code: " + response.code());
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                updateStatus("Failed to fetch contacts. Response code: " + response.code());
-                            }
-                        });
-                    }
-                }
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "Error making request", e);
-            updateStatus("Error making request: " + e.getMessage());
-        }
     }
 
     private void sendSMSToContacts(JSONArray contacts) {
         if (contacts.length() == 0) {
             updateStatus("No emergency contacts found");
             Toast.makeText(this, "No emergency contacts configured", Toast.LENGTH_SHORT).show();
-            Log.w(TAG, "No emergency contacts found");
             return;
         }
 
         String message = createDistressMessage();
-        Log.d(TAG, "Distress message: " + message);
-
         try {
             SmsManager smsManager = SmsManager.getDefault();
             int sentCount = 0;
@@ -307,43 +237,30 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                 try {
                     JSONObject contact = contacts.getJSONObject(i);
                     String phoneNumber = contact.getString("contact_phone");
-                    String contactName = contact.getString("contact_name");
-
-                    Log.d(TAG, "Sending SMS to " + contactName + " at " + phoneNumber);
                     smsManager.sendTextMessage(phoneNumber, null, message, null, null);
                     sentCount++;
-
                 } catch (Exception e) {
                     Log.e(TAG, "Error sending SMS to contact " + i, e);
                 }
             }
 
-            final int finalSentCount = sentCount;
-            updateStatus("Distress signal sent to " + finalSentCount + " contact(s)");
-            Toast.makeText(this, "Distress signal sent to " + finalSentCount + " contact(s)", Toast.LENGTH_SHORT).show();
-            Log.d(TAG, "Distress signal sent to " + finalSentCount + " contacts");
+            updateStatus("Distress signal sent to " + sentCount + " contact(s)");
+            Toast.makeText(this, "Distress signal sent to " + sentCount + " contact(s)", Toast.LENGTH_SHORT).show();
 
         } catch (Exception e) {
-            Log.e(TAG, "Error in sendSMSToContacts", e);
+            Log.e(TAG, "Error sending SMS", e);
             updateStatus("Error sending SMS: " + e.getMessage());
         }
     }
 
     private String createDistressMessage() {
         String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
-        String locationText = "Location not available";
-
-        if (currentLocation != null) {
-            locationText = String.format(Locale.getDefault(),
-                    "Lat: %.6f, Lng: %.6f\nGoogle Maps: https://maps.google.com/?q=%.6f,%.6f",
-                    currentLocation.getLatitude(),
-                    currentLocation.getLongitude(),
-                    currentLocation.getLatitude(),
-                    currentLocation.getLongitude());
-            Log.d(TAG, "Using current location: " + currentLocation.getLatitude() + ", " + currentLocation.getLongitude());
-        } else {
-            Log.w(TAG, "No location available for distress message");
-        }
+        String locationText = currentLocation != null ?
+                String.format(Locale.getDefault(),
+                        "Lat: %.6f, Lng: %.6f\nGoogle Maps: https://maps.google.com/?q=%.6f,%.6f",
+                        currentLocation.getLatitude(), currentLocation.getLongitude(),
+                        currentLocation.getLatitude(), currentLocation.getLongitude())
+                : "Location not available";
 
         return "🚨 EMERGENCY DISTRESS SIGNAL 🚨\n\n" +
                 "This is an automated distress message from Dilitha.\n\n" +
@@ -363,12 +280,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public void onLocationChanged(@NonNull Location location) {
         currentLocation = location;
         updateStatus("Location updated. Ready to send distress signal.");
-        Log.d(TAG, "Location changed: " + location.getLatitude() + ", " + location.getLongitude());
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-        Log.d(TAG, "Location provider " + provider + " status changed: " + status);
+        // Required for interface but not used
     }
 
     @Override
