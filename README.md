@@ -1,155 +1,60 @@
-
 # Distress Signal App
 
-An **Android app in Java** that sends an emergency SMS to predefined contacts when you either:
-
-* Press the **volume up button 3 times** within 2 seconds.
-* Tap the **distress button** in the app UI.
-
-The app integrates with **Supabase** to fetch emergency contacts and then uses the device’s **SmsManager** to send messages.
-
----
+An Android application that allows users to quickly send distress signals by pressing the volume up button 3 times. The app runs as a background service and includes location tracking capabilities.
 
 ## Features
 
-* Detect **3 volume up presses** as a distress trigger.
-* **Manual distress button** in the app UI.
-* Sends SMS directly using **SmsManager** (no external SMS API needed).
-* Fetches emergency contacts dynamically from **Supabase**.
-* Includes location (latitude, longitude, and Google Maps link) in messages.
+- Send distress signals using volume button triggers
+- Background service monitoring for emergency signals
+- Real-time GPS location tracking
+- SMS messaging capabilities
+- Network status monitoring
+- Foreground service notifications
 
----
+## Requirements
 
-## Project Structure
+- Android 8.0 (API level 26) or higher
+- GPS enabled device
+- Internet connection (optional)
+- SMS capabilities (optional)
 
-```
-DistressSignalApp/
-├── app/src/main/java/com/example/distresssignalapp/
-│   └── MainActivity.java        # Core logic (UI, SMS, location, Supabase API)
-│
-├── app/src/main/res/layout/
-│   └── activity_main.xml        # Contains distress button + status text
-│
-├── app/src/main/AndroidManifest.xml
-```
+## Setup
 
----
+1. Clone the repository
+2. Open the project in Android Studio
+3. Sync Gradle dependencies
+4. Build and run the application
 
-## Database (Supabase PostgreSQL)
+## Permissions
 
-### Users table
+The app requires the following permissions:
+- SMS sending
+- Fine and coarse location access
+- Internet access
+- Network state access
+- Foreground service
+- System alert window
+- Wake lock
 
-```sql
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone_number TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT NOW()
-);
+## Usage
 
--- Sample user
-INSERT INTO users (id, phone_number)
-VALUES ('11111111-1111-1111-1111-111111111111', '+94770000000');
-```
+1. Launch the app
+2. Grant required permissions
+3. Press "Start Service" to begin monitoring
+4. Press volume up button 3 times quickly to trigger distress signal
+5. Use "Stop Service" to disable monitoring
 
-### Emergency Contacts table
+## Dependencies
 
-```sql
-CREATE TABLE emergency_contacts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    contact_name TEXT NOT NULL,
-    contact_phone TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
+- AndroidX AppCompat
+- Google Material Design Components
+- OkHttp for network requests
+- Google Play Services Location
+- Gson for JSON parsing
 
--- Sample contact
-INSERT INTO emergency_contacts (user_id, contact_name, contact_phone)
-VALUES ('11111111-1111-1111-1111-111111111111', 'Dad', '+94771234567');
-```
+## Build Configuration
 
----
-
-## Android Setup
-
-### 1. Permissions in `AndroidManifest.xml`
-
-```xml
-<uses-permission android:name="android.permission.SEND_SMS"/>
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-```
-
-### 2. Dependencies (`build.gradle`)
-
-Add **OkHttp** for Supabase REST API calls:
-
-```gradle
-implementation 'com.squareup.okhttp3:okhttp:4.9.3'
-```
-
----
-
-## Core File: `MainActivity.java`
-
-Handles:
-
-* Permission requests.
-* Volume button press detection.
-* Location updates.
-* Supabase REST calls (via OkHttp).
-* SMS sending with **SmsManager**.
-
----
-
-## Layout: `activity_main.xml`
-
-Example:
-
-```xml
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="20dp">
-
-    <TextView
-        android:id="@+id/statusTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Initializing..."
-        android:textSize="18sp"
-        android:padding="10dp"/>
-
-    <Button
-        android:id="@+id/sendDistressButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Send Distress Signal"/>
-</LinearLayout>
-```
-
----
-
-## Running the App
-
-1. Clone the project into Android Studio.
-2. Add your **Supabase URL** and **Anon Key** inside `MainActivity.java`.
-3. Insert your **user and emergency contacts** into Supabase.
-4. Run the app on a real device with a SIM card.
-5. Test:
-
-   * Press **volume up 3 times quickly**.
-   * Or tap the **distress button**.
-6. Emergency contacts will receive an SMS with your **location and timestamp**.
-
----
-
-## Notes
-
-* SMS requires SIM card and credit.
-* Works only on physical devices, not emulators.
-* At least one contact must exist in `emergency_contacts`.
-* Location accuracy depends on GPS and network availability.
-
+- Minimum SDK: 26
+- Target SDK: 27
+- Compile SDK: 34
 
