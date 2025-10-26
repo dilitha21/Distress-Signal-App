@@ -74,7 +74,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         String[] permissions = {
                 Manifest.permission.SEND_SMS,
                 Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.POST_NOTIFICATIONS
         };
 
         ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);

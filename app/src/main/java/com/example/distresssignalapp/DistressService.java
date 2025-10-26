@@ -21,7 +21,7 @@ import androidx.core.app.NotificationCompat;
 public class DistressService extends Service implements LocationListener {
 
     private static final String CHANNEL_ID = "DistressServiceChannel";
-    private static final String EMERGENCY_CONTACT = "+94718303512"; // Change to actual number
+    private static final String EMERGENCY_CONTACT = "+94752354898"; //
     private LocationManager locationManager;
     private Location lastKnownLocation;
 
