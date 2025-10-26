@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId = "com.example.distresssignalapp"
         minSdk = 26
-        targetSdk = 27
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
